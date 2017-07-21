@@ -1,0 +1,5 @@
+name: finite
+depend:
+  standard-library
+include:
+  src
