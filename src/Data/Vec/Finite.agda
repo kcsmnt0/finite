@@ -1,6 +1,6 @@
 open import Finite
 
-module Data.Vec.Finite {ℓ₁} {A : Set ℓ₁} {{_ : IsFinite A}} where
+module Data.Vec.Finite {ℓ} {A : Set ℓ} {{A-IsFinite : IsFinite A}} where
 
 open import Data.Nat
 open import Data.Product
@@ -18,7 +18,7 @@ x ^ suc y = x * x ^ y
 instance
   Vec-IsFinite : ∀ {n} → IsFinite (Vec A n)
 
-  size {{Vec-IsFinite {n}}} = size {_}{A} ^ n
+  size {{Vec-IsFinite {n}}} = size {{A-IsFinite}} ^ n
 
   elements {{Vec-IsFinite {zero}}} = [ [] ]
   elements {{Vec-IsFinite {suc n}}} = Vec.map (uncurry _∷_) (allPairs elements elements)

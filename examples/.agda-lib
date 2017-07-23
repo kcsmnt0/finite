@@ -1,0 +1,6 @@
+name: finite-examples
+depend:
+  finite
+  standard-library
+include:
+  .

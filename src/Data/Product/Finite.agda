@@ -1,6 +1,6 @@
 open import Finite
 
-module Data.Product.Finite {A B} {{_ : IsFinite A}} {{_ : IsFinite B}} where
+module Data.Product.Finite {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} {{_ : IsFinite A}} {{_ : IsFinite B}} where
 
 open import Data.Product
 open import Data.Vec
