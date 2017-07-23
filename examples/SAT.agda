@@ -42,13 +42,19 @@ p ⇔ q = (p ⇒ q) ∧ (q ⇒ p)
 π_ : ∀ {n} → Formula (suc n) → Formula n
 π_ = ϟ _&&_
 
+all = π_
+
 -- some/existential
 σ_ : ∀ {n} → Formula (suc n) → Formula n
 σ_ = ϟ _||_
 
+ex = σ_
+
 -- one/differential
 δ_ : ∀ {n} → Formula (suc n) → Formula n
 δ_ = ϟ _xor_
+
+diff = δ_
 
 Ctx = Vec Bool
 
