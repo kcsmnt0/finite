@@ -2,14 +2,15 @@
 
 module Pigeonhole where
 
-open import Data.List
+open import Data.List as List
 open import Data.List.Any
-open import Data.List.Any.Membership.Propositional
+open import Data.List.Any.Membership.Propositional using () renaming (_⊆_ to _⊆L_)
 open import Data.Nat
 open import Data.Nat.Properties
-open import Data.Product
+open import Data.Product as ×
 open import Data.Sum as ⊎
-open import Data.Vec as Vec using (Vec; []; _∷_)
+open import Data.Vec
+open import Data.Vec.Properties
 open import Finite
 open import Function
 open import Relation.Binary.PropositionalEquality
@@ -18,53 +19,77 @@ open import Relation.Binary.PropositionalEquality
 
 open IsFinite
 
-infixl 6 _–_
-_–_ : ∀ {A x} (xs : List A) → x ∈ xs → List A
-(x ∷ xs) – (here refl) = xs
-(x ∷ xs) – (there e) = x ∷ xs – e
+infix 4 _⊆_
+_⊆_ : ∀ {A m n} → Vec A m → Vec A n → Set
+xs ⊆ ys = ∀ {x} → x ∈ xs → x ∈ ys
 
-swap-⊆ : ∀ {A x y} {xs : List A} → x ∷ y ∷ xs ⊆ y ∷ x ∷ xs
-swap-⊆ (here refl) = there (here refl)
-swap-⊆ (there (here refl)) = here refl
+id≡toList∘fromList : ∀ {A} {xs : List A} → xs ≡ toList (fromList xs)
+id≡toList∘fromList {xs = []} = refl
+id≡toList∘fromList {xs = x ∷ xs} = cong (x ∷_) id≡toList∘fromList
+
+fromList∘toList-⊆ : ∀ {A x n} {xs : Vec A n} → x ∈ fromList (toList xs) → x ∈ xs
+fromList∘toList-⊆ {xs = []} ()
+fromList∘toList-⊆ {xs = x ∷ xs} here = here
+fromList∘toList-⊆ {xs = x ∷ xs} (there e) = there (fromList∘toList-⊆ e)
+
+List-⊆⇒⊆ : ∀ {A m n} {xs : Vec A m} {ys : Vec A n} → toList xs ⊆L toList ys → xs ⊆ ys
+List-⊆⇒⊆ p e = fromList∘toList-⊆ (List-∈⇒∈ (p (∈⇒List-∈ e)))
+
+Vec< : Set → ℕ → Set
+Vec< A n = ∃ λ m → m < n × Vec A m
+
+fromVec< : ∀ {A n} (xs : Vec< A n) → Vec A (proj₁ xs)
+fromVec< = proj₂ ∘ proj₂
+
+remove : ∀ {A x n} {xs : Vec A n} → x ∈ xs → Vec< A n
+remove {xs = x ∷ xs} here = , ≤-refl , xs
+remove {xs = x ∷ xs} (there p) = ×.map _ (×.map s≤s (x ∷_)) (remove p)
+
+swap-⊆ : ∀ {A x y n} {xs : Vec A n} → x ∷ y ∷ xs ⊆ y ∷ x ∷ xs
+swap-⊆ here = there here
+swap-⊆ (there here) = here
 swap-⊆ (there (there e)) = there (there e)
 
-cut : ∀ {A x} {xs ys : List A} → x ∷ xs ⊆ x ∷ ys → x ∈ xs ⊎ xs ⊆ ys
+cut : ∀ {A x m n} {xs : Vec A m} {ys : Vec A n} → x ∷ xs ⊆ x ∷ ys → x ∈ xs ⊎ xs ⊆ ys
 cut {xs = []} p = inj₂ λ ()
-cut {xs = x ∷ xs} p with p (there (here refl))
-… | here refl = inj₁ (here refl)
+cut {xs = x ∷ xs} p with p (there here)
+… | here = inj₁ here
 … | there e = ⊎.map there lem (cut (p ∘ swap-⊆ ∘ there))
       where
         lem = λ p′ → λ where
-          (here refl) → e
+          here → e
           (there e′) → p′ e′
 
-bubble : ∀ {A x} {xs ys : List A} → x ∷ xs ⊆ ys → (e : x ∈ ys) → x ∷ xs ⊆ x ∷ ys – e
-bubble p (here refl) e′ = p e′
+bubble : ∀ {A x m n} {xs : Vec A m} {ys : Vec A n} →
+  x ∷ xs ⊆ ys →
+  (e : x ∈ ys) →
+  x ∷ xs ⊆ x ∷ fromVec< (remove e)
+bubble p here e′ = p e′
 bubble p (there e) e′ with p e′
-… | here refl = there (here refl)
+… | here = there here
 … | there e′′ = swap-⊆ (there (bubble lem e (there e′′)))
       where
         lem : _ ∷ _ ⊆ _
-        lem (here refl) = e
+        lem here = e
         lem (there e′′′) = e′′′
 
-reduceLength : ∀ {A x} {xs : List A}
-  (e : x ∈ xs) (ys : List A) →
-  length xs ≤ length ys →
-  length (xs – e) < length ys
-reduceLength (here refl) ys le = le
-reduceLength (there e) [] ()
+reduceLength : ∀ {A x m n} {xs : Vec A m} (e : x ∈ xs) (ys : Vec A n) → m ≤ n → proj₁ (remove e) < n
+reduceLength here ys le = le
 reduceLength (there e) (y ∷ ys) (s≤s le) = s≤s (reduceLength e ys le)
 
-data Repeats {A} : List A → Set where
-  here : ∀ {x xs} → x ∈ xs → Repeats (x ∷ xs)
-  there : ∀ {x xs} → Repeats xs → Repeats (x ∷ xs)
+data Repeats {A} : ∀ {n} → Vec A n → Set where
+  here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
+  there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
 
-pigeonhole : ∀ {A} (xs ys : List A) → xs ⊆ ys → length xs > length ys → Repeats xs
+pigeonhole : ∀ {A m n} (xs : Vec A m) (ys : Vec A n) → xs ⊆ ys → m > n → Repeats xs
 pigeonhole [] ys p ()
-pigeonhole (x ∷ xs) ys p (s≤s gt) with cut (bubble p (p (here refl)))
+pigeonhole (x ∷ xs) ys p (s≤s gt) with cut (bubble p (p here))
 … | inj₁ e = here e
-… | inj₂ p′ = there (pigeonhole xs (ys – p (here refl)) p′ (reduceLength (p (here refl)) xs gt))
+… | inj₂ p′ = there (pigeonhole xs (fromVec< (remove (p here))) p′ (reduceLength (p here) xs gt))
 
-finitePigeonhole : ∀ {A} (af : IsFinite A) (xs : List A) → length xs > size af → Repeats xs
-finitePigeonhole af xs = pigeonhole xs (elements af) (finiteSubset af)
+finitePigeonhole : ∀ {A n} (af : IsFinite A) (xs : Vec A n) → n > size af → Repeats xs
+finitePigeonhole {A} {n} af xs =
+  pigeonhole
+    xs
+    (fromList (elements af))
+    (List-⊆⇒⊆ (subst (toList xs ⊆L_) id≡toList∘fromList (finiteSubset af)))
