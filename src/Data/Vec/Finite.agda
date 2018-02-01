@@ -1,27 +1,21 @@
 open import Finite
 
-module Data.Vec.Finite {ℓ} {A : Set ℓ} {{A-IsFinite : IsFinite A}} where
+module Data.Vec.Finite where
 
+open import Data.List as List
+open import Data.List.Any
 open import Data.Nat
 open import Data.Product
 open import Data.Vec as Vec
 open import Data.Vec.Properties
+open import Relation.Binary.PropositionalEquality
 
-open IsFinite {{…}}
-
-infixr 8 _^_
-
-_^_ : ℕ → ℕ → ℕ
-x ^ zero = 1
-x ^ suc y = x * x ^ y
+open IsFinite
 
 instance
-  Vec-IsFinite : ∀ {n} → IsFinite (Vec A n)
+  Vec-IsFinite : ∀ {ℓ} {A : Set ℓ} n → IsFinite A → IsFinite (Vec A n)
+  elements (Vec-IsFinite zero af) = List.[ [] ]
+  elements (Vec-IsFinite (suc n) af) = toList (Vec.map (uncurry _∷_) (allPairs (elementsVec af) (elementsVec (Vec-IsFinite n af))))
 
-  size {{Vec-IsFinite {n}}} = size {{A-IsFinite}} ^ n
-
-  elements {{Vec-IsFinite {zero}}} = [ [] ]
-  elements {{Vec-IsFinite {suc n}}} = Vec.map (uncurry _∷_) (allPairs elements elements)
-
-  membership {{Vec-IsFinite}} [] = here
-  membership {{Vec-IsFinite}} (a ∷ as) = ∈-map _ (∈-allPairs (membership a) (membership as))
+  membership (Vec-IsFinite n af) [] = here refl
+  membership (Vec-IsFinite (suc n) af) (a ∷ as) = ∈⇒List-∈ (∈-map _ (∈-allPairs (List-∈⇒∈ (membership af a)) (List-∈⇒∈ (membership (Vec-IsFinite n af) as))))

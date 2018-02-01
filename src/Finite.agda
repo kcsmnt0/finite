@@ -1,24 +1,33 @@
 module Finite where
 
 open import Data.Empty
+open import Data.List
+open import Data.List.Any
+open import Data.List.Any.Membership.Propositional
 open import Data.Nat hiding (_⊔_)
 open import Data.Product
 open import Data.Sum
+open import Data.Vec as Vec using (Vec; []; _∷_)
 open import Data.Unit
-open import Data.Vec
 open import Function
 open import Level
+open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
 
 FiniteRec : ∀ {ℓ₁ ℓ₂ ℓ₃} {A : Set ℓ₁} → (A → Set ℓ₂) → Set ℓ₃ → Set _
-FiniteRec {A = A} P B = ∀ {m n} (xs : Vec A m) (ys : Vec A n) → (∀ a → (a ∈ xs × P a) ⊎ (a ∈ ys)) → B
+FiniteRec P B = ∀ xs ys → (∀ a → (a ∈ xs × P a) ⊎ (a ∈ ys)) → B
 
 record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
   constructor finite
   field
-    {size} : ℕ
-    elements : Vec A size
+    elements : List A
     membership : ∀ a → a ∈ elements
+
+  size = length elements
+  elementsVec = Vec.fromList elements
+
+  finiteSubset : ∀ {xs} → xs ⊆ elements
+  finiteSubset {x = x} _ = membership x
 
   finiteRec : ∀ {ℓ₂ ℓ₃} {B : Set ℓ₂} {P : A → Set ℓ₃} → FiniteRec P B → B
   finiteRec rec = rec [] elements (inj₂ ∘ membership)
@@ -36,7 +45,7 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
           (no ¬py) → go (y ∷ xs) ys λ a →
             case elem a of λ where
               (inj₁ (a∈xs , ¬pa)) → inj₁ (there a∈xs , ¬pa)
-              (inj₂ here) → inj₁ (here , ¬py)
+              (inj₂ (here refl)) → inj₁ (here refl , ¬py)
               (inj₂ (there a∈ys)) → inj₂ a∈ys
 
     ∀? = finiteRec go
@@ -50,5 +59,9 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
           (yes py) → go (y ∷ xs) ys λ a →
             case elem a of λ where
               (inj₁ (a∈xs , pa)) → inj₁ (there a∈xs , pa)
-              (inj₂ here) → inj₁ (here , py)
+              (inj₂ (here refl)) → inj₁ (here refl , py)
               (inj₂ (there a∈ys)) → inj₂ a∈ys
+
+finite-dec : ∀ {ℓ} {A : Set ℓ} → IsFinite A → Dec A
+finite-dec (finite [] _∈xs) = no λ x → case x ∈xs of λ ()
+finite-dec (finite (x ∷ _) _) = yes x
