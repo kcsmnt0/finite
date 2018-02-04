@@ -19,9 +19,9 @@ open import Relation.Binary.PropositionalEquality
 
 open IsFinite
 
-infix 4 _⊆_
-_⊆_ : ∀ {A m n} → Vec A m → Vec A n → Set
-xs ⊆ ys = ∀ {x} → x ∈ xs → x ∈ ys
+infix 4 _⊆V_
+_⊆V_ : ∀ {A m n} → Vec A m → Vec A n → Set
+xs ⊆V ys = ∀ {x} → x ∈ xs → x ∈ ys
 
 id≡toList∘fromList : ∀ {A} {xs : List A} → xs ≡ toList (fromList xs)
 id≡toList∘fromList {xs = []} = refl
@@ -32,7 +32,7 @@ fromList∘toList-⊆ {xs = []} ()
 fromList∘toList-⊆ {xs = x ∷ xs} here = here
 fromList∘toList-⊆ {xs = x ∷ xs} (there e) = there (fromList∘toList-⊆ e)
 
-List-⊆⇒⊆ : ∀ {A m n} {xs : Vec A m} {ys : Vec A n} → toList xs ⊆L toList ys → xs ⊆ ys
+List-⊆⇒⊆ : ∀ {A m n} {xs : Vec A m} {ys : Vec A n} → toList xs ⊆L toList ys → xs ⊆V ys
 List-⊆⇒⊆ p e = fromList∘toList-⊆ (List-∈⇒∈ (p (∈⇒List-∈ e)))
 
 Vec< : Set → ℕ → Set
@@ -45,12 +45,12 @@ remove : ∀ {A x n} {xs : Vec A n} → x ∈ xs → Vec< A n
 remove {xs = x ∷ xs} here = , ≤-refl , xs
 remove {xs = x ∷ xs} (there p) = ×.map _ (×.map s≤s (x ∷_)) (remove p)
 
-swap-⊆ : ∀ {A x y n} {xs : Vec A n} → x ∷ y ∷ xs ⊆ y ∷ x ∷ xs
+swap-⊆ : ∀ {A x y n} {xs : Vec A n} → x ∷ y ∷ xs ⊆V y ∷ x ∷ xs
 swap-⊆ here = there here
 swap-⊆ (there here) = here
 swap-⊆ (there (there e)) = there (there e)
 
-cut : ∀ {A x m n} {xs : Vec A m} {ys : Vec A n} → x ∷ xs ⊆ x ∷ ys → x ∈ xs ⊎ xs ⊆ ys
+cut : ∀ {A x m n} {xs : Vec A m} {ys : Vec A n} → x ∷ xs ⊆V x ∷ ys → x ∈ xs ⊎ xs ⊆V ys
 cut {xs = []} p = inj₂ λ ()
 cut {xs = x ∷ xs} p with p (there here)
 … | here = inj₁ here
@@ -61,15 +61,15 @@ cut {xs = x ∷ xs} p with p (there here)
           (there e′) → p′ e′
 
 bubble : ∀ {A x m n} {xs : Vec A m} {ys : Vec A n} →
-  x ∷ xs ⊆ ys →
+  x ∷ xs ⊆V ys →
   (e : x ∈ ys) →
-  x ∷ xs ⊆ x ∷ fromVec< (remove e)
+  x ∷ xs ⊆V x ∷ fromVec< (remove e)
 bubble p here e′ = p e′
 bubble p (there e) e′ with p e′
 … | here = there here
 … | there e′′ = swap-⊆ (there (bubble lem e (there e′′)))
       where
-        lem : _ ∷ _ ⊆ _
+        lem : _ ∷ _ ⊆V _
         lem here = e
         lem (there e′′′) = e′′′
 
@@ -81,7 +81,7 @@ data Repeats {A} : ∀ {n} → Vec A n → Set where
   here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
   there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
 
-pigeonhole : ∀ {A m n} (xs : Vec A m) (ys : Vec A n) → xs ⊆ ys → m > n → Repeats xs
+pigeonhole : ∀ {A m n} (xs : Vec A m) (ys : Vec A n) → xs ⊆V ys → m > n → Repeats xs
 pigeonhole [] ys p ()
 pigeonhole (x ∷ xs) ys p (s≤s gt) with cut (bubble p (p here))
 … | inj₁ e = here e
