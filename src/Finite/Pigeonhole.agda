@@ -1,9 +1,9 @@
 {-# OPTIONS --type-in-type #-}
 
-module Pigeonhole where
+module Finite.Pigeonhole where
 
-open import Data.List as List
-open import Data.List.Any
+open import Data.List as List using (List; []; _∷_)
+open import Data.List.Any using (here; there)
 open import Data.List.Any.Membership.Propositional using () renaming (_⊆_ to _⊆L_)
 open import Data.Nat
 open import Data.Nat.Properties
@@ -22,6 +22,10 @@ open IsFinite
 infix 4 _⊆V_
 _⊆V_ : ∀ {A m n} → Vec A m → Vec A n → Set
 xs ⊆V ys = ∀ {x} → x ∈ xs → x ∈ ys
+
+data Repeats {A} : ∀ {n} → Vec A n → Set where
+  here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
+  there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
 
 id≡toList∘fromList : ∀ {A} {xs : List A} → xs ≡ toList (fromList xs)
 id≡toList∘fromList {xs = []} = refl
@@ -77,10 +81,6 @@ reduceLength : ∀ {A x m n} {xs : Vec A m} (e : x ∈ xs) (ys : Vec A n) → m 
 reduceLength here ys le = le
 reduceLength (there e) (y ∷ ys) (s≤s le) = s≤s (reduceLength e ys le)
 
-data Repeats {A} : ∀ {n} → Vec A n → Set where
-  here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
-  there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
-
 pigeonhole : ∀ {A m n} (xs : Vec A m) (ys : Vec A n) → xs ⊆V ys → m > n → Repeats xs
 pigeonhole [] ys p ()
 pigeonhole (x ∷ xs) ys p (s≤s gt) with cut (bubble p (p here))
@@ -92,4 +92,4 @@ finitePigeonhole {A} {n} af xs =
   pigeonhole
     xs
     (fromList (elements af))
-    (List-⊆⇒⊆ (subst (toList xs ⊆L_) id≡toList∘fromList (finiteSubset af)))
+    (List-⊆⇒⊆ (subst (toList xs ⊆L_) id≡toList∘fromList (finite-⊆ af)))

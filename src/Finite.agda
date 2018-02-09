@@ -2,6 +2,7 @@ module Finite where
 
 open import Data.Empty
 open import Data.List
+open import Data.List.All
 open import Data.List.Any
 open import Data.List.Any.Membership.Propositional
 open import Data.Nat hiding (_⊔_)
@@ -26,8 +27,8 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
   size = length elements
   elementsVec = Vec.fromList elements
 
-  finiteSubset : ∀ {xs} → xs ⊆ elements
-  finiteSubset {x = x} _ = membership x
+  finite-⊆ : ∀ {xs} → xs ⊆ elements
+  finite-⊆ {x = x} _ = membership x
 
   finiteRec : ∀ {ℓ₂ ℓ₃} {B : Set ℓ₂} {P : A → Set ℓ₃} → FiniteRec P B → B
   finiteRec rec = rec [] elements (inj₂ ∘ membership)
@@ -61,6 +62,8 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
               (inj₁ (a∈xs , pa)) → inj₁ (there a∈xs , pa)
               (inj₂ (here refl)) → inj₁ (here refl , py)
               (inj₂ (there a∈ys)) → inj₂ a∈ys
+
+open IsFinite
 
 finite-dec : ∀ {ℓ} {A : Set ℓ} → IsFinite A → Dec A
 finite-dec (finite [] _∈xs) = no λ x → case x ∈xs of λ ()
