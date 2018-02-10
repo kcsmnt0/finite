@@ -9,4 +9,4 @@ This is a small library for working with finite sets, based on some of the const
 [2]: https://github.com/effectfully/random-stuff/blob/master/pigeonhole.agda
 
 # How to build
-Building requires the [Agda standard library](https://github.com/agda/agda-stdlib) to be installed and associated with the name `standard-libarary` in an Agda [`defaults` file](http://agda.readthedocs.io/en/v2.5.3/tools/package-system.html).
+Building requires the [Agda standard library](https://github.com/agda/agda-stdlib) to be installed and associated with the name `standard-libarary` in an Agda [`libraries` file](http://agda.readthedocs.io/en/v2.5.3/tools/package-system.html).
