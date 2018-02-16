@@ -65,6 +65,6 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
 
 open IsFinite
 
-finite-dec : ∀ {ℓ} {A : Set ℓ} → IsFinite A → Dec A
-finite-dec (finite [] _∈xs) = no λ x → case x ∈xs of λ ()
-finite-dec (finite (x ∷ _) _) = yes x
+finiteDec : ∀ {ℓ} {A : Set ℓ} → IsFinite A → Dec A
+finiteDec (finite [] _∈xs) = no λ x → case x ∈xs of λ ()
+finiteDec (finite (x ∷ _) _) = yes x
