@@ -1,8 +1,5 @@
 module Finite.Pigeonhole where
 
-open import Data.List as List using (List; []; _∷_)
-open import Data.List.Any using (here; there)
-open import Data.List.Any.Membership.Propositional using () renaming (_⊆_ to _⊆L_)
 open import Data.Nat
 open import Data.Nat.Properties
 open import Data.Product as ×
@@ -29,24 +26,12 @@ module _ {ℓ} {A : Set ℓ} where
     here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
     there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
 
-  id≡toList∘fromList : {xs : List A} → xs ≡ toList (fromList xs)
-  id≡toList∘fromList {xs = []} = refl
-  id≡toList∘fromList {xs = x ∷ xs} = cong (x ∷_) id≡toList∘fromList
-
-  fromList∘toList-⊆ : ∀ {x n} {xs : Vec A n} → x ∈ fromList (toList xs) → x ∈ xs
-  fromList∘toList-⊆ {xs = []} ()
-  fromList∘toList-⊆ {xs = x ∷ xs} here = here
-  fromList∘toList-⊆ {xs = x ∷ xs} (there e) = there (fromList∘toList-⊆ e)
-
-  List-⊆⇒⊆ : ∀ {m n} {xs : Vec A m} {ys : Vec A n} → toList xs ⊆L toList ys → xs ⊆V ys
-  List-⊆⇒⊆ p e = fromList∘toList-⊆ (List-∈⇒∈ (p (∈⇒List-∈ e)))
-
   fromVec< : ∀ {n} (xs : Vec< A n) → Vec A (proj₁ xs)
   fromVec< = proj₂ ∘ proj₂
 
-  remove : ∀ {x n} {xs : Vec A n} → x ∈ xs → Vec< A n
-  remove {xs = x ∷ xs} here = , ≤-refl , xs
-  remove {xs = x ∷ xs} (there p) = ×.map _ (×.map s≤s (x ∷_)) (remove p)
+  remove< : ∀ {x n} {xs : Vec A n} → x ∈ xs → Vec< A n
+  remove< {xs = x ∷ xs} here = , ≤-refl , xs
+  remove< {xs = x ∷ xs} (there p) = ×.map _ (×.map s≤s (x ∷_)) (remove< p)
 
   swap-⊆ : ∀ {x y n} {xs : Vec A n} → x ∷ y ∷ xs ⊆V y ∷ x ∷ xs
   swap-⊆ here = there here
@@ -66,7 +51,7 @@ module _ {ℓ} {A : Set ℓ} where
   bubble : ∀ {x m n} {xs : Vec A m} {ys : Vec A n} →
     x ∷ xs ⊆V ys →
     (e : x ∈ ys) →
-    x ∷ xs ⊆V x ∷ fromVec< (remove e)
+    x ∷ xs ⊆V x ∷ fromVec< (remove< e)
   bubble p here e′ = p e′
   bubble p (there e) e′ with p e′
   … | here = there here
@@ -76,7 +61,7 @@ module _ {ℓ} {A : Set ℓ} where
           lem here = e
           lem (there e′′′) = e′′′
 
-  reduceLength : ∀ {x m n} {xs : Vec A m} (e : x ∈ xs) (ys : Vec A n) → m ≤ n → proj₁ (remove e) < n
+  reduceLength : ∀ {x m n} {xs : Vec A m} (e : x ∈ xs) (ys : Vec A n) → m ≤ n → proj₁ (remove< e) < n
   reduceLength here ys le = le
   reduceLength (there e) (y ∷ ys) (s≤s le) = s≤s (reduceLength e ys le)
 
@@ -84,11 +69,11 @@ module _ {ℓ} {A : Set ℓ} where
   pigeonhole [] ys p ()
   pigeonhole (x ∷ xs) ys p (s≤s gt) with cut (bubble p (p here))
   … | inj₁ e = here e
-  … | inj₂ p′ = there (pigeonhole xs (fromVec< (remove (p here))) p′ (reduceLength (p here) xs gt))
+  … | inj₂ p′ = there (pigeonhole xs (fromVec< (remove< (p here))) p′ (reduceLength (p here) xs gt))
 
   finitePigeonhole : ∀ {n} (af : IsFinite A) (xs : Vec A n) → n > size af → Repeats xs
   finitePigeonhole {n} af xs =
     pigeonhole
       xs
       (fromList (elements af))
-      (List-⊆⇒⊆ (subst (toList xs ⊆L_) id≡toList∘fromList (finite-⊆ af)))
+      (List-∈⇒∈ ∘ finite-⊆ af ∘ ∈⇒List-∈)

@@ -4,7 +4,8 @@ open import Data.Empty
 open import Data.List
 open import Data.List.All
 open import Data.List.Any
-open import Data.List.Any.Membership.Propositional
+open import Data.List.Membership.Propositional
+open import Data.List.Relation.Sublist.Propositional
 open import Data.Nat hiding (_⊔_)
 open import Data.Product
 open import Data.Sum
