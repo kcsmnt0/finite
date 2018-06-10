@@ -1,14 +1,11 @@
 module Finite where
 
-open import Data.Bool as Bool
-open import Data.Empty as ⊥
+open import Data.Empty
 open import Data.List as List
-open import Data.List.Properties
-open import Data.List.All as All
-open import Data.List.Any as Any
-open import Data.List.Any.Properties
-open import Data.List.Any.Membership.Propositional as ∈
-open import Data.List.Any.Membership.Propositional.Properties hiding (finite)
+open import Data.List.Any
+open import Data.List.Membership.Propositional
+open import Data.List.Membership.Propositional.Properties hiding (finite)
+open import Data.List.Relation.Sublist.Propositional
 open import Data.Nat hiding (_⊔_)
 open import Data.Product as ×
 open import Data.Sum as ⊎
@@ -33,7 +30,7 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
   size = length elements
   elementsVec = Vec.fromList elements
 
-  finite-⊆ : ∀ {x xs} → x ∈ xs → x ∈ elements
+  finite-⊆ : ∀ {xs} → xs ⊆ elements
   finite-⊆ {x = x} _ = membership x
 
   finiteRec : ∀ {ℓ₂ ℓ₃} {B : Set ℓ₂} {P : A → List A → Set ℓ₃} → FiniteRec P B → B
@@ -89,12 +86,6 @@ filter-∃-True : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂}
   (P? : ∀ a → Dec (P a)) → List A → List (∃ λ a → True (P? a))
 filter-∃-True P? as = List.map (×.map id fromWitness) (filter-∃ P? as)
 
-∃-witness : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂} {a}
-  (P? : ∀ a → Dec (P a)) → True (P? a) → ∃ λ pa → P? a ≡ yes pa
-∃-witness {a = a} P? pa with P? a
-∃-witness {a = a} P? pa | yes pa′ = pa′ , refl
-∃-witness {a = a} P? () | no ¬pa
-
 filter-∃-∈ : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂}
   (P? : ∀ a → Dec (P a)) (as : List A) →
   ∀ {a} → a ∈ as → (pa : True (P? a)) → (a , toWitness pa) ∈ filter-∃ P? as
@@ -123,8 +114,10 @@ filter-∃-True-∈ P? as {a} e pa =
 
 finiteFilter : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂}
   (P? : ∀ a → Dec (P a)) → IsFinite A → IsFinite (∃ λ a → True (P? a))
-elements (finiteFilter P? (finite xs _∈xs)) = filter-∃-True P? xs
-membership (finiteFilter P? (finite xs _∈xs)) (a , pa) = filter-∃-True-∈ P? xs (a ∈xs) pa
+finiteFilter P? (finite xs _∈xs) = record
+  { elements = filter-∃-True P? xs
+  ; membership = λ where (a , pa) → filter-∃-True-∈ P? xs (a ∈xs) pa
+  }
 
 module _ {ℓ₁ ℓ₂ ℓ₃} {A : Set ℓ₁} {_≈_ : Rel A ℓ₂} {_<_ : Rel A ℓ₃}
   (≤-po : IsDecStrictPartialOrder _≈_ _<_) where

@@ -1,8 +1,5 @@
 module Finite.Pigeonhole where
 
-open import Data.List as List using (List; []; _∷_)
-open import Data.List.Any using (here; there; any)
-open import Data.List.Any.Membership.Propositional using () renaming (_∈_ to _∈L_)
 open import Data.Nat
 open import Data.Nat.Properties
 open import Data.Product as ×
@@ -29,42 +26,6 @@ module _ {ℓ} {A : Set ℓ} where
   data Repeats : ∀ {n} → Vec A n → Set ℓ where
     here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
     there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
-
-  module _ (_≟_ : (a b : A) → Dec (a ≡ b)) where
-    infix 4 _∈?_
-    _∈?_ : ∀ {n} a (as : Vec A n) → Dec (a ∈ as)
-    a ∈? [] = no λ ()
-    a ∈? b ∷ as =
-      case a ≟ b of λ where
-        (yes refl) → yes here
-        (no a≢b) → case a ∈? as of λ where
-          (yes a∈as) → yes (there a∈as)
-          (no a∉as) → no λ where
-            here → a≢b refl
-            (there a∈as) → a∉as a∈as
-
-    repeats? : ∀ {n} → (as : Vec A n) → Dec (Repeats as)
-    repeats? [] = no λ ()
-    repeats? (a ∷ as) =
-      case a ∈? as of λ where
-        (yes a∈as) → yes (here a∈as)
-        (no a∉as) → case repeats? as of λ where
-          (yes r) → yes (there r)
-          (no ¬r) → no λ where
-            (here a∈as) → a∉as a∈as
-            (there r) → ¬r r
-
-  id≡toList∘fromList : {xs : List A} → xs ≡ toList (fromList xs)
-  id≡toList∘fromList {xs = []} = refl
-  id≡toList∘fromList {xs = x ∷ xs} = cong (x ∷_) id≡toList∘fromList
-
-  fromList∘toList-⊆ : ∀ {x n} {xs : Vec A n} → x ∈ fromList (toList xs) → x ∈ xs
-  fromList∘toList-⊆ {xs = []} ()
-  fromList∘toList-⊆ {xs = x ∷ xs} here = here
-  fromList∘toList-⊆ {xs = x ∷ xs} (there e) = there (fromList∘toList-⊆ e)
-
-  List-⊆⇒⊆ : ∀ {m n} {xs : Vec A m} {ys : Vec A n} → (∀ {x} → x ∈L toList xs → x ∈L toList ys) → xs ⊆V ys
-  List-⊆⇒⊆ p e = fromList∘toList-⊆ (List-∈⇒∈ (p (∈⇒List-∈ e)))
 
   fromVec< : ∀ {n} (xs : Vec< A n) → Vec A (proj₁ xs)
   fromVec< = proj₂ ∘ proj₂
@@ -112,7 +73,7 @@ module _ {ℓ} {A : Set ℓ} where
   … | inj₂ p′ = there (pigeonhole xs (fromVec< (remove< (p here))) p′ (reduceLength (p here) xs gt))
 
   finitePigeonhole : ∀ {n} (af : IsFinite A) (xs : Vec A n) → n > size af → Repeats xs
-  finitePigeonhole {n} af xs =
+  finitePigeonhole af xs =
     pigeonhole
       xs
       (fromList (elements af))

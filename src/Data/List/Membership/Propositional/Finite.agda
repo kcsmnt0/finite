@@ -1,10 +1,10 @@
-module Data.List.Any.Membership.Propositional.Finite where
+module Data.List.Membership.Propositional.Finite where
 
 open import Finite
 open import Data.List as List
 open import Data.List.Any as Any
-open import Data.List.Any.Membership.Propositional as ∈
-open import Data.List.Any.Membership.Propositional.Properties hiding (finite)
+open import Data.List.Membership.Propositional as ∈
+open import Data.List.Membership.Propositional.Properties hiding (finite)
 open import Data.Product as ×
 open import Relation.Binary.PropositionalEquality as ≡
 
