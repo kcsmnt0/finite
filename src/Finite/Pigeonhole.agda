@@ -27,6 +27,30 @@ module _ {ℓ} {A : Set ℓ} where
     here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
     there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
 
+  module _ (_≟_ : (a b : A) → Dec (a ≡ b)) where
+    infix 4 _∈?_
+    _∈?_ : ∀ {n} a (as : Vec A n) → Dec (a ∈ as)
+    a ∈? [] = no λ ()
+    a ∈? b ∷ as =
+      case a ≟ b of λ where
+        (yes refl) → yes here
+        (no a≢b) → case a ∈? as of λ where
+          (yes a∈as) → yes (there a∈as)
+          (no a∉as) → no λ where
+            here → a≢b refl
+            (there a∈as) → a∉as a∈as
+
+    repeats? : ∀ {n} → (as : Vec A n) → Dec (Repeats as)
+    repeats? [] = no λ ()
+    repeats? (a ∷ as) =
+      case a ∈? as of λ where
+        (yes a∈as) → yes (here a∈as)
+        (no a∉as) → case repeats? as of λ where
+          (yes r) → yes (there r)
+          (no ¬r) → no λ where
+            (here a∈as) → a∉as a∈as
+            (there r) → ¬r r
+
   fromVec< : ∀ {n} (xs : Vec< A n) → Vec A (proj₁ xs)
   fromVec< = proj₂ ∘ proj₂
 
