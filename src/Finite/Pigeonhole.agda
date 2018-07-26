@@ -10,6 +10,7 @@ open import Finite
 open import Function
 open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
+open import Relation.Nullary.Negation
 
 -- based on https://github.com/effectfully/random-stuff/blob/master/pigeonhole.agda
 
@@ -27,6 +28,9 @@ module _ {ℓ} {A : Set ℓ} where
     here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
     there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
 
+  Acyclic : ∀ {n} → Vec A n → Set _
+  Acyclic xs = ¬ Repeats xs
+
   module _ (_≟_ : (a b : A) → Dec (a ≡ b)) where
     infix 4 _∈?_
     _∈?_ : ∀ {n} a (as : Vec A n) → Dec (a ∈ as)
@@ -40,7 +44,7 @@ module _ {ℓ} {A : Set ℓ} where
             here → a≢b refl
             (there a∈as) → a∉as a∈as
 
-    repeats? : ∀ {n} → (as : Vec A n) → Dec (Repeats as)
+    repeats? : ∀ {n} (as : Vec A n) → Dec (Repeats as)
     repeats? [] = no λ ()
     repeats? (a ∷ as) =
       case a ∈? as of λ where
@@ -50,6 +54,9 @@ module _ {ℓ} {A : Set ℓ} where
           (no ¬r) → no λ where
             (here a∈as) → a∉as a∈as
             (there r) → ¬r r
+
+    acyclic? : ∀ {n} (as : Vec A n) → Dec (¬ Repeats as)
+    acyclic? = ¬? ∘ repeats?
 
   fromVec< : ∀ {n} (xs : Vec< A n) → Vec A (proj₁ xs)
   fromVec< = proj₂ ∘ proj₂
