@@ -7,8 +7,7 @@ open import Data.List.Any
 open import Data.List.Membership.Propositional
 open import Data.List.Membership.Propositional.Properties hiding (finite)
 open import Data.List.Relation.Sublist.Propositional
-open import Data.Nat hiding (_⊔_)
-open import Data.Product as ×
+open import Data.Product as Σ
 open import Data.Sum as ⊎
 open import Data.Vec as Vec using (Vec; []; _∷_)
 open import Data.Unit as ⊤
@@ -19,7 +18,13 @@ open import Level
 open import Relation.Binary
 open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; _≗_; refl; subst)
 open import Relation.Nullary
-open import Relation.Nullary.Decidable
+open import Relation.Nullary.Decidable as Decidable
+open import Relation.Nullary.Negation
+
+fromWitness∘toWitness≗id : ∀ {ℓ} {A : Set ℓ} {A? : Dec A} → fromWitness {Q = A?} ∘ toWitness ≗ id
+fromWitness∘toWitness≗id {A? = A?} with A?
+… | yes a = λ where tt → refl
+… | no ¬a = λ ()
 
 FiniteRec : ∀ {ℓ₁ ℓ₂ ℓ₃} {A : Set ℓ₁} → (A → List A → Set ℓ₂) → Set ℓ₃ → Set _
 FiniteRec P B = ∀ xs ys → (∀ a → (a ∈ xs × P a xs) ⊎ (a ∈ ys)) → B
@@ -38,6 +43,11 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
 
   finiteRec : ∀ {ℓ₂ ℓ₃} {B : Set ℓ₂} {P : A → List A → Set ℓ₃} → FiniteRec P B → B
   finiteRec rec = rec [] elements (inj₂ ∘ membership)
+
+  dec : Dec A
+  dec with elements | membership
+  dec | [] | _∈[] = no λ a → case a ∈[] of λ ()
+  dec | a ∷ as | _ = yes a
 
   module _ {ℓ₂} {P : A → Set ℓ₂} (P? : ∀ a → Dec (P a)) where
     ∃? : Dec (∃ P)
@@ -71,56 +81,76 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
               (inj₂ (here refl)) → inj₁ (here refl , py)
               (inj₂ (there a∈ys)) → inj₂ a∈ys
 
+    filter-∃ : List A → List (∃ P)
+    filter-∃ [] = []
+    filter-∃ (a ∷ as) =
+      case P? a of λ where
+        (yes pa) → (, pa) ∷ filter-∃ as
+        (no ¬pa) → filter-∃ as
+
+    filter-∃-∈ : ∀ {a as} → a ∈ as → (pa : True (P? a)) → (a , toWitness pa) ∈ filter-∃ as
+    filter-∃-∈ {as = a ∷ as} (here refl) pa with P? a
+    filter-∃-∈ (here refl) pa | yes pa′ = here refl
+    filter-∃-∈ (here refl) () | no ¬pa
+    filter-∃-∈ {as = a ∷ as} (there e) pa with P? a
+    filter-∃-∈ (there e) pa | yes pa′ = there (filter-∃-∈ e pa)
+    filter-∃-∈ (there e) pa | no ¬pa = filter-∃-∈ e pa
+
+    filter-∃-True : List A → List (∃ (True ∘ P?))
+    filter-∃-True = List.map (Σ.map₂ fromWitness) ∘ filter-∃
+
+    filter-∃-True-∈ : ∀ {a as} → a ∈ as → (pa : True (P? a)) → (a , pa) ∈ filter-∃-True as
+    filter-∃-True-∈ {a} e pa =
+      subst
+        (λ pa′ → (a , pa′) ∈ _)
+        (fromWitness∘toWitness≗id _)
+        (∈-map⁺ (filter-∃-∈ e pa))
+
+    filter : IsFinite (∃ (True ∘ P?))
+    filter = record
+      { elements = filter-∃-True elements
+      ; membership = λ where (a , pa) → filter-∃-True-∈ (membership a) pa
+      }
+
+  module Ordered {ℓ₂ ℓ₃} {_≈_ : A → A → Set ℓ₂} {_<_ : A → A → Set ℓ₃}
+    (<-po : IsDecStrictPartialOrder _≈_ _<_)
+    where
+    open IsDecStrictPartialOrder <-po
+
+    _≮_ : A → A → Set _
+    a ≮ b = ¬ (a < b)
+
+    maxOf : A → ∀ as → ∃ λ a → ∀ {x} → x ∈ as → a ≮ x
+    maxOf p [] = p , λ ()
+    maxOf p (a ∷ as) =
+      let x , f = maxOf p as in
+        case (a <? x) ,′ (x <? a) of λ where
+          (yes a<x , _) → x , λ {y} y∈a∷as x<y →
+            case y∈a∷as of λ where
+              (here refl) → asymmetric x<y a<x
+              (there y∈as) → f y∈as x<y
+          (_ , yes x<a) → a , λ {y} y∈a∷as a<y →
+            case y∈a∷as of λ where
+              (here refl) → irrefl Eq.refl a<y
+              (there y∈as) → f y∈as (trans x<a a<y)
+          (no a≮x , no x≮a) → x , λ {y} y∈a∷as x<y →
+            case y∈a∷as of λ where
+              (here refl) → x≮a x<y
+              (there y∈as) → f y∈as x<y
+
+    max : (¬ A) ⊎ (∃ λ a → ∀ x → a ≮ x)
+    max =
+      case dec of λ where
+        (yes a) → let x , m = maxOf a elements in inj₂ (x , (m ∘ membership))
+        (no ¬a) → inj₁ ¬a
+
+    pointedMax : A → ∃ λ a → ∀ x → a ≮ x
+    pointedMax x =
+      case max of λ where
+        (inj₁ ¬a) → contradiction x ¬a
+        (inj₂ a) → a
+
 open IsFinite
-
-finiteDec : ∀ {ℓ} {A : Set ℓ} → IsFinite A → Dec A
-finiteDec (finite [] _∈[]) = no λ x → case x ∈[] of λ ()
-finiteDec (finite (x ∷ _) _) = yes x
-
-filter-∃ : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂}
-  (P? : ∀ a → Dec (P a)) → List A → List (∃ P)
-filter-∃ P? [] = []
-filter-∃ P? (a ∷ as) =
-  case P? a of λ where
-    (yes pa) → (, pa) ∷ filter-∃ P? as
-    (no ¬pa) → filter-∃ P? as
-
-filter-∃-True : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂}
-  (P? : ∀ a → Dec (P a)) → List A → List (∃ λ a → True (P? a))
-filter-∃-True P? as = List.map (×.map id fromWitness) (filter-∃ P? as)
-
-filter-∃-∈ : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂}
-  (P? : ∀ a → Dec (P a)) (as : List A) →
-  ∀ {a} → a ∈ as → (pa : True (P? a)) → (a , toWitness pa) ∈ filter-∃ P? as
-filter-∃-∈ P? [] () pa
-filter-∃-∈ P? (a ∷ as) (here refl) pa with P? a
-filter-∃-∈ P? (a ∷ as) (here refl) pa | yes pa′ = here refl
-filter-∃-∈ P? (a ∷ as) (here refl) () | no ¬pa
-filter-∃-∈ P? (a ∷ as) (there e) pa with P? a
-filter-∃-∈ P? (a ∷ as) (there e) pa | yes pa′ = there (filter-∃-∈ P? as e pa)
-filter-∃-∈ P? (a ∷ as) (there e) pa | no ¬pa = filter-∃-∈ P? as e pa
-
-fromWitness∘toWitness≗id : ∀ {ℓ} {A : Set ℓ} {A? : Dec A} →
-  fromWitness {Q = A?} ∘ toWitness ≗ id
-fromWitness∘toWitness≗id {A? = A?} with A?
-… | yes a = λ where tt → refl
-… | no ¬a = λ ()
-
-filter-∃-True-∈ : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂}
-  (P? : ∀ a → Dec (P a)) (as : List A) →
-  ∀ {a} → a ∈ as → (pa : True (P? a)) → (a , pa) ∈ filter-∃-True P? as
-filter-∃-True-∈ P? as {a} e pa =
-  subst
-    (λ pa′ → (a , pa′) ∈ _)
-    (fromWitness∘toWitness≗id _)
-    (∈-map⁺ (filter-∃-∈ P? as e pa))
-
-finiteFilter : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {P : A → Set ℓ₂}
-  (P? : ∀ a → Dec (P a)) → IsFinite A → IsFinite (∃ λ a → True (P? a))
-finiteFilter P? (finite xs _∈xs) = record
-  { elements = filter-∃-True P? xs
-  ; membership = λ where (a , pa) → filter-∃-True-∈ P? xs (a ∈xs) pa
-  }
 
 via-left-inverse : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → (A ↞ B) → IsFinite B → IsFinite A
 via-left-inverse f finB = record
@@ -128,39 +158,3 @@ via-left-inverse f finB = record
   ; membership = λ a → subst (_∈ _) (left-inverse-of a) (∈-map⁺ (membership finB (to ⟨$⟩ a)))
   }
   where open LeftInverse f
-
-module _ {ℓ₁ ℓ₂ ℓ₃} {A : Set ℓ₁} {_≈_ : Rel A ℓ₂} {_<_ : Rel A ℓ₃}
-  (≤-po : IsDecStrictPartialOrder _≈_ _<_) where
-  open IsDecStrictPartialOrder ≤-po renaming (_≟_ to _≈?_)
-
-  maximum : A → ∀ as → ∃ λ a → ∀ {x} → x ∈ as → ¬ a < x
-  maximum p [] = p , λ ()
-  maximum p (a ∷ as) =
-    let x , f = maximum p as in
-      case (a <? x) ,′ (x <? a) of λ where
-        (yes a<x , _) → x , λ {y} y∈a∷as x<y →
-          case y∈a∷as of λ where
-            (here refl) → asymmetric x<y a<x
-            (there y∈as) → f y∈as x<y
-        (_ , yes x<a) → a , λ {y} y∈a∷as a<y →
-          case y∈a∷as of λ where
-            (here refl) → irrefl Eq.refl a<y
-            (there y∈as) → f y∈as (trans x<a a<y)
-        (no a≮x , no x≮a) → x , λ {y} y∈a∷as x<y →
-          case y∈a∷as of λ where
-            (here refl) → x≮a x<y
-            (there y∈as) → f y∈as x<y
-
-  finiteMax : IsFinite A → (¬ A) ⊎ (∃ λ a → ∀ x → ¬ a < x)
-  finiteMax af@(finite as _∈as) =
-    case finiteDec af of λ where
-      (yes a) →
-        let x , f = maximum a as in
-          inj₂ (x , (f ∘ _∈as))
-      (no ¬a) → inj₁ ¬a
-
-  finitePointedMax : IsFinite A → A → ∃ λ a → ∀ x → ¬ a < x
-  finitePointedMax af a =
-    case finiteMax af of λ where
-      (inj₁ ¬a) → ⊥-elim (¬a a)
-      (inj₂ m) → m
