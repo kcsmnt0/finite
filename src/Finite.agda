@@ -1,7 +1,8 @@
 module Finite where
 
 open import Data.Empty
-open import Data.List as List
+open import Data.List as List hiding (filter)
+open import Data.List.Properties as ListProps
 open import Data.List.Any
 open import Data.List.Membership.Propositional
 open import Data.List.Membership.Propositional.Properties hiding (finite)
@@ -12,6 +13,8 @@ open import Data.Sum as ⊎
 open import Data.Vec as Vec using (Vec; []; _∷_)
 open import Data.Unit as ⊤
 open import Function
+open import Function.LeftInverse as ↞ using (LeftInverse; _↞_)
+open import Function.Equality as Π using (_⟨$⟩_; cong)
 open import Level
 open import Relation.Binary
 open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; _≗_; refl; subst)
@@ -118,6 +121,13 @@ finiteFilter P? (finite xs _∈xs) = record
   { elements = filter-∃-True P? xs
   ; membership = λ where (a , pa) → filter-∃-True-∈ P? xs (a ∈xs) pa
   }
+
+via-left-inverse : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → (A ↞ B) → IsFinite B → IsFinite A
+via-left-inverse f finB = record
+  { elements = List.map (from ⟨$⟩_) (elements finB)
+  ; membership = λ a → subst (_∈ _) (left-inverse-of a) (∈-map⁺ (membership finB (to ⟨$⟩ a)))
+  }
+  where open LeftInverse f
 
 module _ {ℓ₁ ℓ₂ ℓ₃} {A : Set ℓ₁} {_≈_ : Rel A ℓ₂} {_<_ : Rel A ℓ₃}
   (≤-po : IsDecStrictPartialOrder _≈_ _<_) where
