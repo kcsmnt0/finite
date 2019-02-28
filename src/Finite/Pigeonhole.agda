@@ -1,10 +1,15 @@
 module Finite.Pigeonhole where
 
+open import Data.Fin as Fin using (Fin; zero; suc)
+import Data.Fin.Properties as FinProps
 open import Data.Nat
-open import Data.Nat.Properties
-open import Data.Product as ×
+open import Data.Nat.Properties as ℕ-Props
+open import Data.Product as Σ
 open import Data.Sum as ⊎
-open import Data.Vec
+open import Data.Vec as Vec
+open import Data.Vec.Any
+open import Data.Vec.Membership.Propositional
+open import Data.Vec.Membership.Propositional.Properties
 open import Data.Vec.Properties
 open import Finite
 open import Function
@@ -12,100 +17,107 @@ open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
 open import Relation.Nullary.Negation
 
--- based on https://github.com/effectfully/random-stuff/blob/master/pigeonhole.agda
+open ≡-Reasoning
 
 open IsFinite
 
-Vec< : ∀ {ℓ} → Set ℓ → ℕ → Set ℓ
-Vec< A n = ∃ λ m → m < n × Vec A m
+data Repeats {a} {A : Set a} : ∀ {n} → Vec A n → Set a where
+  here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
+  there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
 
-module _ {ℓ} {A : Set ℓ} where
-  infix 4 _⊆V_
-  _⊆V_ : ∀ {m n} → Vec A m → Vec A n → Set _
-  xs ⊆V ys = ∀ {x} → x ∈ xs → x ∈ ys
+Acyclic : ∀ {a n} {A : Set a} → Vec A n → Set _
+Acyclic xs = ¬ Repeats xs
 
-  data Repeats : ∀ {n} → Vec A n → Set ℓ where
-    here : ∀ {x n} {xs : Vec A n} → x ∈ xs → Repeats (x ∷ xs)
-    there : ∀ {x n} {xs : Vec A n} → Repeats xs → Repeats (x ∷ xs)
+module _ {a} {A : Set a} (_≟_ : (a b : A) → Dec (a ≡ b)) where
+  infix 4 _∈?_
+  _∈?_ : ∀ {n} a (as : Vec A n) → Dec (a ∈ as)
+  a ∈? [] = no λ ()
+  a ∈? b ∷ as =
+    case a ≟ b of λ where
+      (yes refl) → yes (here refl)
+      (no a≢b) → case a ∈? as of λ where
+        (yes a∈as) → yes (there a∈as)
+        (no a∉as) → no λ where
+          (here refl) → a≢b refl
+          (there a∈as) → a∉as a∈as
 
-  Acyclic : ∀ {n} → Vec A n → Set _
-  Acyclic xs = ¬ Repeats xs
+  repeats? : ∀ {n} (as : Vec A n) → Dec (Repeats as)
+  repeats? [] = no λ ()
+  repeats? (a ∷ as) =
+    case a ∈? as of λ where
+      (yes a∈as) → yes (here a∈as)
+      (no a∉as) → case repeats? as of λ where
+        (yes r) → yes (there r)
+        (no ¬r) → no λ where
+          (here a∈as) → a∉as a∈as
+          (there r) → ¬r r
 
-  module _ (_≟_ : (a b : A) → Dec (a ≡ b)) where
-    infix 4 _∈?_
-    _∈?_ : ∀ {n} a (as : Vec A n) → Dec (a ∈ as)
-    a ∈? [] = no λ ()
-    a ∈? b ∷ as =
-      case a ≟ b of λ where
-        (yes refl) → yes here
-        (no a≢b) → case a ∈? as of λ where
-          (yes a∈as) → yes (there a∈as)
-          (no a∉as) → no λ where
-            here → a≢b refl
-            (there a∈as) → a∉as a∈as
+infix 4 _⊆_
+_⊆_ : ∀ {a m n} {A : Set a} → Vec A m → Vec A n → Set _
+xs ⊆ ys = ∀ {x} → x ∈ xs → x ∈ ys
 
-    repeats? : ∀ {n} (as : Vec A n) → Dec (Repeats as)
-    repeats? [] = no λ ()
-    repeats? (a ∷ as) =
-      case a ∈? as of λ where
-        (yes a∈as) → yes (here a∈as)
-        (no a∉as) → case repeats? as of λ where
-          (yes r) → yes (there r)
-          (no ¬r) → no λ where
-            (here a∈as) → a∉as a∈as
-            (there r) → ¬r r
+⊆-inject : ∀ {a m n} {A : Set a} (xs : Vec A m) (ys : Vec A n) → xs ⊆ ys → Fin m → Fin n
+⊆-inject xs ys f = index ∘ f ∘ flip ∈-lookup xs
 
-    acyclic? : ∀ {n} (as : Vec A n) → Dec (¬ Repeats as)
-    acyclic? = ¬? ∘ repeats?
+pigeonholeVec : ∀ {a m n} {A : Set a}
+  (xs : Vec A m) (ys : Vec A n) →
+  n < m →
+  (f : Fin m → Fin n) →
+  (g : ∀ i → lookup i xs ≡ lookup (f i) ys) →
+  ∃₂ λ i j → i ≢ j × lookup i xs ≡ lookup j xs
+pigeonholeVec xs ys p f g with FinProps.pigeonhole p f
+… | i , j , i≢j , q =
+      i , j , i≢j ,
+        (begin
+          lookup i xs
+        ≡⟨ g i ⟩
+          lookup (f i) ys
+        ≡⟨ cong (flip lookup ys) q ⟩
+          lookup (f j) ys
+        ≡⟨ sym (g j) ⟩
+          lookup j xs
+        ∎)
 
-  fromVec< : ∀ {n} (xs : Vec< A n) → Vec A (proj₁ xs)
-  fromVec< = proj₂ ∘ proj₂
+lookup-repeats : ∀ {a n} {A : Set a}
+  (xs : Vec A n) (i j : Fin n) →
+  i ≢ j → lookup i xs ≡ lookup j xs → Repeats xs
+lookup-repeats (x ∷ xs) zero zero i≢j p = contradiction refl i≢j
+lookup-repeats (x ∷ xs) zero (suc j) i≢j refl = here (∈-lookup j xs)
+lookup-repeats (x ∷ xs) (suc i) zero i≢j refl = here (∈-lookup i xs)
+lookup-repeats (x ∷ xs) (suc i) (suc j) i≢j p = there (lookup-repeats xs i j (i≢j ∘ cong suc) p)
 
-  remove< : ∀ {x n} {xs : Vec A n} → x ∈ xs → Vec< A n
-  remove< {xs = x ∷ xs} here = , ≤-refl , xs
-  remove< {xs = x ∷ xs} (there p) = ×.map _ (×.map s≤s (x ∷_)) (remove< p)
+lookup-⊆ : ∀ {a m n} {A : Set a}
+  (xs : Vec A m) (ys : Vec A n) →
+  (f : Fin m → Fin n) →
+  (∀ i → lookup i xs ≡ lookup (f i) ys) →
+  xs ⊆ ys
+lookup-⊆ .(_ ∷ _) ys f g (here refl) rewrite g zero = ∈-lookup (f zero) ys
+lookup-⊆ .(_ ∷ _) ys f g (there i) = lookup-⊆ _ ys (f ∘ suc) (g ∘ suc) i
 
-  swap-⊆ : ∀ {x y n} {xs : Vec A n} → x ∷ y ∷ xs ⊆V y ∷ x ∷ xs
-  swap-⊆ here = there here
-  swap-⊆ (there here) = here
-  swap-⊆ (there (there e)) = there (there e)
+lookup-index : ∀ {a n} {A : Set a} {x} {xs : Vec A n} (i : x ∈ xs) → x ≡ lookup (index i) xs
+lookup-index (here refl) = refl
+lookup-index (there i) = lookup-index i
 
-  cut : ∀ {x m n} {xs : Vec A m} {ys : Vec A n} → x ∷ xs ⊆V x ∷ ys → x ∈ xs ⊎ xs ⊆V ys
-  cut {xs = []} p = inj₂ λ ()
-  cut {xs = x ∷ xs} p with p (there here)
-  … | here = inj₁ here
-  … | there e = ⊎.map there lem (cut (p ∘ swap-⊆ ∘ there))
-        where
-          lem = λ p′ → λ where
-            here → e
-            (there e′) → p′ e′
+lookup-⊆-≡ : ∀ {a m n} {A : Set a}
+  (xs : Vec A m) (ys : Vec A n)
+  (f : xs ⊆ ys) →
+  ∀ i → lookup i xs ≡ lookup (⊆-inject xs ys f i) ys
+lookup-⊆-≡ xs ys f = lookup-index ∘ f ∘ flip ∈-lookup xs
 
-  bubble : ∀ {x m n} {xs : Vec A m} {ys : Vec A n} →
-    x ∷ xs ⊆V ys →
-    (e : x ∈ ys) →
-    x ∷ xs ⊆V x ∷ fromVec< (remove< e)
-  bubble p here e′ = p e′
-  bubble p (there e) e′ with p e′
-  … | here = there here
-  … | there e′′ = swap-⊆ (there (bubble lem e (there e′′)))
-        where
-          lem : _ ∷ _ ⊆V _
-          lem here = e
-          lem (there e′′′) = e′′′
+pigeonhole : ∀ {a m n} {A : Set a}
+  (xs : Vec A m) (ys : Vec A n) →
+  n < m → xs ⊆ ys → Repeats xs
+pigeonhole xs ys p f =
+  let
+    i , j , i≢j , q = pigeonholeVec xs ys p (⊆-inject xs ys f) (lookup-⊆-≡ xs ys f)
+  in
+    lookup-repeats xs i j i≢j q
 
-  reduceLength : ∀ {x m n} {xs : Vec A m} (e : x ∈ xs) (ys : Vec A n) → m ≤ n → proj₁ (remove< e) < n
-  reduceLength here ys le = le
-  reduceLength (there e) (y ∷ ys) (s≤s le) = s≤s (reduceLength e ys le)
-
-  pigeonhole : ∀ {m n} (xs : Vec A m) (ys : Vec A n) → xs ⊆V ys → m > n → Repeats xs
-  pigeonhole [] ys p ()
-  pigeonhole (x ∷ xs) ys p (s≤s gt) with cut (bubble p (p here))
-  … | inj₁ e = here e
-  … | inj₂ p′ = there (pigeonhole xs (fromVec< (remove< (p here))) p′ (reduceLength (p here) xs gt))
-
-  finitePigeonhole : ∀ {n} (af : IsFinite A) (xs : Vec A n) → n > size af → Repeats xs
-  finitePigeonhole af xs =
-    pigeonhole
-      xs
-      (fromList (elements af))
-      (List-∈⇒∈ ∘ finite-⊆ af ∘ ∈⇒List-∈)
+finitePigeonhole : ∀ {a n} {A : Set a}
+  (af : IsFinite A) (xs : Vec A n) →
+  n > size af → Repeats xs
+finitePigeonhole af xs p =
+  pigeonhole
+    xs (fromList (elements af))
+      p
+      (∈-fromList⁺ ∘ finite-⊆ af ∘ ∈-toList⁺)

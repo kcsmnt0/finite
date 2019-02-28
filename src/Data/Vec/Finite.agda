@@ -7,6 +7,8 @@ open import Data.List.Any
 open import Data.Nat
 open import Data.Product
 open import Data.Vec as Vec
+open import Data.Vec.Membership.Propositional
+open import Data.Vec.Membership.Propositional.Properties
 open import Data.Vec.Properties
 open import Relation.Binary.PropositionalEquality
 
@@ -18,4 +20,9 @@ instance
   elements (Vec-IsFinite (suc n) af) = toList (Vec.map (uncurry _∷_) (allPairs (elementsVec af) (elementsVec (Vec-IsFinite n af))))
 
   membership (Vec-IsFinite n af) [] = here refl
-  membership (Vec-IsFinite (suc n) af) (a ∷ as) = ∈⇒List-∈ (∈-map _ (∈-allPairs (List-∈⇒∈ (membership af a)) (List-∈⇒∈ (membership (Vec-IsFinite n af) as))))
+  membership (Vec-IsFinite (suc n) af) (a ∷ as) =
+    ∈-toList⁺
+      (∈-map⁺ _
+        (∈-allPairs⁺
+          (∈-fromList⁺ (membership af a))
+          (∈-fromList⁺ (membership (Vec-IsFinite n af) as))))
