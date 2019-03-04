@@ -11,4 +11,4 @@ This is a small library for working with finite sets, based on some of the const
 # How to build
 Building requires the [Agda standard library](http://wiki.portal.chalmers.se/agda/pmwiki.php?n=Libraries.StandardLibrary) to be installed and associated with the name `standard-libarary` in an Agda [`libraries` file](http://agda.readthedocs.io/en/v2.5.3/tools/package-system.html).
 
-This code has been tested against Agda version 2.5.4 and standard library version 0.16.
+This code has been tested against Agda version 2.5.4.2 and standard library version 0.17.
