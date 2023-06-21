@@ -1,23 +1,25 @@
 module Finite where
 
 open import Data.Empty
+open import Data.Fin.Properties using (suc-injective)
 open import Data.List as List hiding (filter)
 open import Data.List.Properties as ListProps
-open import Data.List.Any
 open import Data.List.Membership.Propositional
 open import Data.List.Membership.Propositional.Properties hiding (finite)
-open import Data.List.Relation.Subset.Propositional
+open import Data.List.Relation.Binary.Subset.Propositional
+open import Data.List.Relation.Unary.Any
 open import Data.Product as Σ
 open import Data.Sum as ⊎
 open import Data.Vec as Vec using (Vec; []; _∷_)
 open import Data.Unit as ⊤
 open import Function
-open import Function.LeftInverse as ↞ using (LeftInverse; _↞_)
+open import Function using (LeftInverse; _↩_)
 open import Function.Equality as Π using (_⟨$⟩_; cong)
 open import Level
 open import Relation.Binary
+open import Relation.Binary.Bundles
 open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; _≗_; refl; subst)
-open import Relation.Nullary
+open import Relation.Nullary as Nullary
 open import Relation.Nullary.Decidable as Decidable
 open import Relation.Nullary.Negation
 
@@ -25,6 +27,16 @@ fromWitness∘toWitness≗id : ∀ {ℓ} {A : Set ℓ} {A? : Dec A} → fromWitn
 fromWitness∘toWitness≗id {A? = A?} with A?
 … | yes a = λ where tt → refl
 … | no ¬a = λ ()
+
+indexElement-injective : ∀
+  {ℓ} {A : Set ℓ} {x y : A} {xs}
+  (i : x ∈ xs) (j : y ∈ xs) →
+  index i ≡ index j →
+  x ≡ y
+indexElement-injective (here refl) (here refl) eq = refl
+indexElement-injective (here refl) (there j) ()
+indexElement-injective (there i) (here refl) ()
+indexElement-injective (there i) (there j) eq = indexElement-injective i j (suc-injective eq)
 
 FiniteRec : ∀ {ℓ₁ ℓ₂ ℓ₃} {A : Set ℓ₁} → (A → List A → Set ℓ₂) → Set ℓ₃ → Set _
 FiniteRec P B = ∀ xs ys → (∀ a → (a ∈ xs × P a xs) ⊎ (a ∈ ys)) → B
@@ -37,12 +49,16 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
 
   size = length elements
   elementsVec = Vec.fromList elements
+  indexOf = index ∘ membership
 
   finite-⊆ : ∀ {xs} → xs ⊆ elements
   finite-⊆ {x = x} _ = membership x
 
   finiteRec : ∀ {ℓ₂ ℓ₃} {B : Set ℓ₂} {P : A → List A → Set ℓ₃} → FiniteRec P B → B
   finiteRec rec = rec [] elements (inj₂ ∘ membership)
+
+  indexOf-injective : ∀ {a b} → indexOf a ≡ indexOf b → a ≡ b
+  indexOf-injective = indexElement-injective (membership _) (membership _)
 
   dec : Dec A
   dec with elements | membership
@@ -104,7 +120,7 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
       subst
         (λ pa′ → (a , pa′) ∈ _)
         (fromWitness∘toWitness≗id _)
-        (∈-map⁺ (filter-∃-∈ e pa))
+        (∈-map⁺ _ (filter-∃-∈ e pa))
 
     filter : IsFinite (∃ (True ∘ P?))
     filter = record
@@ -120,6 +136,9 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
     _≮_ : A → A → Set _
     a ≮ b = ¬ (a < b)
 
+    Maximal : A → Set _
+    Maximal x = ∀ y → x ≮ y
+
     maxOf : A → ∀ as → ∃ λ a → ∀ {x} → x ∈ as → a ≮ x
     maxOf p [] = p , λ ()
     maxOf p (a ∷ as) =
@@ -127,7 +146,7 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
         case (a <? x) ,′ (x <? a) of λ where
           (yes a<x , _) → x , λ {y} y∈a∷as x<y →
             case y∈a∷as of λ where
-              (here refl) → asymmetric x<y a<x
+              (here refl) → asym x<y a<x
               (there y∈as) → f y∈as x<y
           (_ , yes x<a) → a , λ {y} y∈a∷as a<y →
             case y∈a∷as of λ where
@@ -138,13 +157,13 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
               (here refl) → x≮a x<y
               (there y∈as) → f y∈as x<y
 
-    max : (¬ A) ⊎ (∃ λ a → ∀ x → a ≮ x)
+    max : (¬ A) ⊎ (∃ Maximal)
     max =
       case dec of λ where
         (yes a) → let x , m = maxOf a elements in inj₂ (x , (m ∘ membership))
         (no ¬a) → inj₁ ¬a
 
-    pointedMax : A → ∃ λ a → ∀ x → a ≮ x
+    pointedMax : A → ∃ Maximal
     pointedMax x =
       case max of λ where
         (inj₁ ¬a) → contradiction x ¬a
@@ -152,9 +171,13 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
 
 open IsFinite
 
-via-left-inverse : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → (A ↞ B) → IsFinite B → IsFinite A
-via-left-inverse f finB = record
-  { elements = List.map (from ⟨$⟩_) (elements finB)
-  ; membership = λ a → subst (_∈ _) (left-inverse-of a) (∈-map⁺ (membership finB (to ⟨$⟩ a)))
+via-left-inverse : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → IsFinite B → (B ↩ A) → IsFinite A
+via-left-inverse finB h = record
+  { elements = List.map to (elements finB)
+  ; membership = λ a → subst (_∈ _) (inverseˡ a) (∈-map⁺ _ (membership finB (from a)))
   }
-  where open LeftInverse f
+  where open LeftInverse h
+
+via-irrelevant-dec : ∀ {ℓ} {A : Set ℓ} → Nullary.Irrelevant A → Dec A → IsFinite A
+via-irrelevant-dec p (yes a) = finite [ a ] (here ∘ flip p a)
+via-irrelevant-dec p (no ¬a) = finite [] (⊥-elim ∘ ¬a)

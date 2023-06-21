@@ -9,7 +9,7 @@ open import Data.Unit
 open import Data.Vec
 open import Data.Vec.Finite
 open import Finite
-open import Function
+open import Function using (id; _∘_; _$_)
 open import Relation.Nullary using (Dec; yes; no)
 open import Relation.Nullary.Decidable
 
@@ -59,7 +59,7 @@ diff = δ_
 Ctx = Vec Bool
 
 eval : ∀ {n} → Ctx n → Formula n → Bool
-eval g ⟨ i ⟩ = lookup i g
+eval g ⟨ i ⟩ = lookup g i
 eval g (p ∧ q) = eval g p && eval g q
 eval g (¬ p) = not (eval g p)
 eval g (ϟ _∙_ p) = eval (true ∷ g) p ∙ eval (false ∷ g) p
