@@ -1,27 +1,37 @@
 module Finite where
 
 open import Data.Empty
-open import Data.Fin.Properties using (suc-injective)
-open import Data.List as List hiding (filter)
+open import Data.Fin as Fin using (Fin; zero; suc)
+open import Data.Fin.Properties as Fin using (suc-injective)
+open import Data.List as List using (List; []; _∷_; length; [_])
 open import Data.List.Properties as ListProps
-open import Data.List.Membership.Propositional
-open import Data.List.Membership.Propositional.Properties hiding (finite)
+open import Data.List.Membership.Propositional as ∈
+open import Data.List.Membership.Propositional.Properties as ∈ hiding (finite)
+open import Data.List.Membership.Setoid.Properties as ∈ using (unique⇒irrelevant)
 open import Data.List.Relation.Binary.Subset.Propositional
-open import Data.List.Relation.Unary.Any
+open import Data.List.Relation.Unary.Any as Any
+open import Data.List.Relation.Unary.Any.Properties as Any
+open import Data.List.Relation.Unary.Enumerates.Setoid as Enumerates
+open import Data.List.Relation.Unary.Enumerates.Setoid.Properties as Enumerates
+import Data.List.Relation.Unary.Unique.DecPropositional
+open import Data.List.Relation.Unary.Unique.DecPropositional.Properties
 open import Data.Product as Σ
 open import Data.Sum as ⊎
 open import Data.Vec as Vec using (Vec; []; _∷_)
-open import Data.Unit as ⊤
+open import Data.Unit as ⊤ using (⊤; tt)
 open import Function
-open import Function using (LeftInverse; _↩_)
+open import Function.Consequences
 open import Function.Equality as Π using (_⟨$⟩_; cong)
-open import Level
-open import Relation.Binary
+open import Level as ℓ using (Level)
+open import Relation.Binary as Binary
 open import Relation.Binary.Bundles
 open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; _≗_; refl; subst)
+open import Relation.Binary.PropositionalEquality.WithK as ≡
 open import Relation.Nullary as Nullary
-open import Relation.Nullary.Decidable as Decidable
+open import Relation.Nullary.Decidable as Dec using (True; fromWitness; toWitness)
 open import Relation.Nullary.Negation
+
+open ≡.≡-Reasoning
 
 fromWitness∘toWitness≗id : ∀ {ℓ} {A : Set ℓ} {A? : Dec A} → fromWitness {Q = A?} ∘ toWitness ≗ id
 fromWitness∘toWitness≗id {A? = A?} with A?
@@ -38,6 +48,10 @@ indexElement-injective (here refl) (there j) ()
 indexElement-injective (there i) (here refl) ()
 indexElement-injective (there i) (there j) eq = indexElement-injective i j (suc-injective eq)
 
+index-∈-lookup : ∀ {ℓ} {A : Set ℓ} {xs : List A} i → index (∈-lookup {xs = xs} i) ≡ i
+index-∈-lookup {xs = x ∷ xs} zero = refl
+index-∈-lookup {xs = x ∷ xs} (suc i) = ≡.cong suc (index-∈-lookup {xs = xs} i)
+
 FiniteRec : ∀ {ℓ₁ ℓ₂ ℓ₃} {A : Set ℓ₁} → (A → List A → Set ℓ₂) → Set ℓ₃ → Set _
 FiniteRec P B = ∀ xs ys → (∀ a → (a ∈ xs × P a xs) ⊎ (a ∈ ys)) → B
 
@@ -45,7 +59,7 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
   constructor finite
   field
     elements : List A
-    membership : ∀ a → a ∈ elements
+    membership : IsEnumeration (≡.setoid A) elements
 
   size = length elements
   elementsVec = Vec.fromList elements
@@ -57,13 +71,27 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
   finiteRec : ∀ {ℓ₂ ℓ₃} {B : Set ℓ₂} {P : A → List A → Set ℓ₃} → FiniteRec P B → B
   finiteRec rec = rec [] elements (inj₂ ∘ membership)
 
-  indexOf-injective : ∀ {a b} → indexOf a ≡ indexOf b → a ≡ b
-  indexOf-injective = indexElement-injective (membership _) (membership _)
+  numbering : A ↣ Fin size
+  numbering = mk↣ (indexElement-injective (membership _) (membership _))
 
   dec : Dec A
   dec with elements | membership
   dec | [] | _∈[] = no λ a → case a ∈[] of λ ()
   dec | a ∷ as | _ = yes a
+
+  _≟_ : DecidableEquality A
+  x ≟ y with indexOf x Fin.≟ indexOf y
+  … | yes i≡j = yes (indexElement-injective (membership x) (membership y) i≡j)
+  … | no i≢j = no λ where refl → i≢j refl
+
+  decSetoid : DecSetoid ℓ₁ ℓ₁
+  decSetoid = ≡.decSetoid _≟_
+
+  _≤_ : REL A _ _
+  x ≤ y = indexOf x Fin.≤ indexOf y
+
+  _<_ : REL A _ _
+  x < y = indexOf x Fin.< indexOf y
 
   module _ {ℓ₂} {P : A → Set ℓ₂} (P? : ∀ a → Dec (P a)) where
     ∃? : Dec (∃ P)
@@ -169,14 +197,58 @@ record IsFinite {ℓ₁} (A : Set ℓ₁) : Set ℓ₁ where
         (inj₁ ¬a) → contradiction x ¬a
         (inj₂ a) → a
 
+record MinimalEnumeration {ℓ} (A : Set ℓ) : Set ℓ where
+  field
+    isFinite : IsFinite A
+
+  open IsFinite isFinite public
+  open Data.List.Relation.Unary.Unique.DecPropositional _≟_
+
+  field
+    unique : Unique elements
+
+  ∈-unique : ∀ {x} (i j : x ∈ elements) → i ≡ j
+  ∈-unique = ∈.unique⇒irrelevant (≡.setoid _) ≡-irrelevant unique
+
+  indexOfUnique : ∀ i → indexOf (List.lookup elements i) ≡ i
+  indexOfUnique i =
+    begin
+      indexOf (List.lookup elements i)
+    ≡⟨ ≡.cong index (∈-unique (membership (List.lookup elements i)) (∈-lookup i)) ⟩
+      index (∈-lookup i)
+    ≡⟨ index-∈-lookup i ⟩
+      i
+    ∎
+
+  minimalNumbering : A ↔ Fin (length elements)
+  minimalNumbering =
+    mk↔ {to = indexOf}
+      (indexOfUnique , ≡.sym ∘ lookup-index ∘ membership)
+
+module _ {ℓ} {A : Set ℓ} (finA : IsFinite A) where
+  open IsFinite finA
+
+  deduplicate : MinimalEnumeration A
+  deduplicate = record
+    { isFinite = finite (List.deduplicate _≟_ elements) (Enumerates.deduplicate⁺ (≡.decSetoid _≟_) membership)
+    ; unique = deduplicate-! _≟_ elements
+    }
+
 open IsFinite
 
+via-surjection : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → IsFinite B → (B ↠ A) → IsFinite A
+via-surjection finB h .elements = List.map (Surjection.to h) (finB .elements)
+via-surjection finB h .membership x =
+  subst (_∈ _)
+    (proj₂ (Surjection.surjective h x))
+    (∈-map⁺ _ (finB .membership (Surjection.to⁻ h x)))
+
 via-left-inverse : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → IsFinite B → (B ↩ A) → IsFinite A
-via-left-inverse finB h = record
-  { elements = List.map to (elements finB)
-  ; membership = λ a → subst (_∈ _) (inverseˡ a) (∈-map⁺ _ (membership finB (from a)))
-  }
-  where open LeftInverse h
+via-left-inverse finB h =
+  via-surjection finB
+    (mk↠
+      {to = LeftInverse.to h}
+      (inverseˡ⇒surjective _≡_ _≡_ (LeftInverse.inverseˡ h)))
 
 via-irrelevant-dec : ∀ {ℓ} {A : Set ℓ} → Nullary.Irrelevant A → Dec A → IsFinite A
 via-irrelevant-dec p (yes a) = finite [ a ] (here ∘ flip p a)

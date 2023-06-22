@@ -20,7 +20,7 @@ open import Data.Sum as ⊎
 open import Data.Unit as ⊤
 open import Finite
 open import Function
-open import Function using (LeftInverse; _↩_)
+open import Function.Construct.Composition
 open import Function.Equality as Π using (_⟨$⟩_; cong)
 open import Induction.WellFounded
 open import Relation.Binary
@@ -29,6 +29,7 @@ open import Relation.Binary.PropositionalEquality as ≡ using (_≡_; _≗_; re
 open import Relation.Nullary as Nullary
 open import Relation.Nullary.Decidable as Decidable
 open import Relation.Nullary.Negation
+import Relation.Unary as Unary
 
 module Desc (I : Set) where
   data Desc : Set where
@@ -85,7 +86,9 @@ module Desc (I : Set) where
     Data-IsFinite : ∀ D i → IsFinite (Data D i)
     Data-IsFinite D i = All.wfRec <-wellFounded _ _ Struct-IsFinite i D
 
-module Examples where
+module `Fin where
+  open MinimalEnumeration
+  open import Data.Fin as Fin
   open Desc ℕ
   open FiniteDesc
     ℕ._<_
@@ -106,14 +109,47 @@ module Examples where
   `Fin = arg ℕ (List.[_] ∘ ℕ.pred) `Fin＠
 
   `zero : ∀ {n} → Data `Fin (suc n)
-  `zero =
-    arg _ (here refl)
+  `zero {n} =
+    Struct.arg n (here refl)
       (arg false (there (here refl))
         ret)
 
-  `suc : ∀ {n} → Data `Fin n → Data `Fin (suc n)
-  `suc i =
-    arg _ (here refl)
+  `sucBy : ∀ {n} → n ℕ.< suc n → Data `Fin n → Data `Fin (suc n)
+  `sucBy {n} n<1+n i =
+    arg n (here refl)
       (arg true (here refl)
-        (rec ≤-refl i
+        (rec n<1+n i
           ret))
+
+  `suc : ∀ {n} → Data `Fin n → Data `Fin (suc n)
+  `suc = `sucBy ≤-refl
+
+  ¬`Fin₀ : ¬ Data `Fin zero
+  ¬`Fin₀ (arg .(ℕ.pred zero) (here refl) (arg .true (here refl) (rec x i _))) = ¬`Fin₀ i
+  ¬`Fin₀ (arg .(ℕ.pred zero) (here refl) (arg true (there (here ())) i))
+  ¬`Fin₀ (arg .(ℕ.pred zero) (here refl) (arg true (there (there ())) i))
+
+  `Fin→Fin : ∀ {n} → Data `Fin n → Fin n
+  `Fin→Fin {zero} i = contradiction i ¬`Fin₀
+  `Fin→Fin {suc n} (arg _ (here refl) (arg .false (there (here refl)) ret)) = zero
+  `Fin→Fin {suc n} (arg _ (here refl) (arg .true (here refl) (rec x i ret))) = suc (`Fin→Fin i)
+
+  Fin→`Fin : ∀ {n} → Fin n → Data `Fin n
+  Fin→`Fin zero = `zero
+  Fin→`Fin (suc i) = `suc (Fin→`Fin i)
+
+  Fin→`Fin→Fin≗id : ∀ {n} → `Fin→Fin {n} ∘ Fin→`Fin ≗ id
+  Fin→`Fin→Fin≗id zero = refl
+  Fin→`Fin→Fin≗id (suc i) = ≡.cong suc (Fin→`Fin→Fin≗id i)
+
+  `Fin→Fin→`Fin≗id : ∀ {n} → Fin→`Fin {n} ∘ `Fin→Fin ≗ id
+  `Fin→Fin→`Fin≗id {zero} (arg _ (here refl) i) = contradiction i (¬`Fin₀ ∘ arg _ (here refl))
+  `Fin→Fin→`Fin≗id {suc n} (arg _ (here refl) (arg .false (there (here refl)) ret)) = refl
+  `Fin→Fin→`Fin≗id {suc n} (arg _ (here refl) (arg .true (here refl) (rec lt i ret))) =
+    ≡.cong₂ `sucBy (≤-irrelevant _ _) (`Fin→Fin→`Fin≗id i)
+
+  Fin↔`Fin : ∀ {n} → Fin n ↔ Data `Fin n
+  Fin↔`Fin = mk↔ {to = Fin→`Fin} (`Fin→Fin→`Fin≗id , Fin→`Fin→Fin≗id)
+
+  Data-complete : ∀ {A : Set} → IsFinite A → ∃₂ λ D n → (A ↔ Data D n)
+  Data-complete A… = -, -, minimalNumbering (Finite.deduplicate A…) ↔-∘ Fin↔`Fin
