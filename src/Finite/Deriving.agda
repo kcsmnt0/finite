@@ -151,5 +151,5 @@ module `Fin where
   Fin↔`Fin : ∀ {n} → Fin n ↔ Data `Fin n
   Fin↔`Fin = mk↔ {to = Fin→`Fin} (`Fin→Fin→`Fin≗id , Fin→`Fin→Fin≗id)
 
-  Data-complete : ∀ {A : Set} → IsFinite A → ∃₂ λ D n → (A ↔ Data D n)
-  Data-complete A… = -, -, minimalNumbering (Finite.deduplicate A…) ↔-∘ Fin↔`Fin
+  Data-complete : ∀ {A : Set} (A… : IsFinite A) → (A ↔ Data `Fin (cardinality A…))
+  Data-complete A… = minimalNumbering (Finite.deduplicate A…) ↔-∘ Fin↔`Fin

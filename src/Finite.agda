@@ -13,6 +13,7 @@ open import Data.List.Relation.Unary.Any as Any
 open import Data.List.Relation.Unary.Any.Properties as Any
 open import Data.List.Relation.Unary.Enumerates.Setoid as Enumerates
 open import Data.List.Relation.Unary.Enumerates.Setoid.Properties as Enumerates
+open import Data.Nat as ℕ using (ℕ; zero; suc)
 import Data.List.Relation.Unary.Unique.DecPropositional
 open import Data.List.Relation.Unary.Unique.DecPropositional.Properties
 open import Data.Product as Σ
@@ -233,6 +234,9 @@ module _ {ℓ} {A : Set ℓ} (finA : IsFinite A) where
     { isFinite = finite (List.deduplicate _≟_ elements) (Enumerates.deduplicate⁺ (≡.decSetoid _≟_) membership)
     ; unique = deduplicate-! _≟_ elements
     }
+
+  cardinality : ℕ
+  cardinality = MinimalEnumeration.size deduplicate
 
 open IsFinite
 
