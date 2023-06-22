@@ -1,7 +1,7 @@
 module Finite.Pigeonhole where
 
 open import Data.Fin as Fin using (Fin; zero; suc)
-import Data.Fin.Properties as FinProps
+import Data.Fin.Properties as Fin
 open import Data.Irrelevant as Irrelevant
 open import Data.Nat as ℕ
 open import Data.Nat.Properties as ℕ
@@ -81,9 +81,9 @@ pigeonholeVec : ∀ {a m n} {A : Set a}
   (f : Fin m → Fin n) →
   (g : ∀ i → lookup xs i ≡ lookup ys (f i)) →
   ∃₂ λ i j → i ≢ j × lookup xs i ≡ lookup xs j
-pigeonholeVec xs ys p f g with FinProps.pigeonhole p f
+pigeonholeVec xs ys p f g with Fin.pigeonhole p f
 … | i , j , i<j , q =
-      i , j , (λ where refl → n≮n _ i<j) ,
+      i , j , Fin.<⇒≢ i<j ,
         (begin
           lookup xs i
         ≡⟨ g i ⟩
