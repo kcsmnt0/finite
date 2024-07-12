@@ -22,7 +22,6 @@ open import Data.Vec as Vec using (Vec; []; _∷_)
 open import Data.Unit as ⊤ using (⊤; tt)
 open import Function
 open import Function.Consequences
-open import Function.Equality as Π using (_⟨$⟩_; cong)
 open import Level as ℓ using (Level)
 open import Relation.Binary as Binary
 open import Relation.Binary.Bundles
@@ -34,7 +33,7 @@ open import Relation.Nullary.Negation
 
 open ≡.≡-Reasoning
 
-fromWitness∘toWitness≗id : ∀ {ℓ} {A : Set ℓ} {A? : Dec A} → fromWitness {Q = A?} ∘ toWitness ≗ id
+fromWitness∘toWitness≗id : ∀ {ℓ} {A : Set ℓ} {A? : Dec A} → fromWitness {a? = A?} ∘ toWitness ≗ id
 fromWitness∘toWitness≗id {A? = A?} with A?
 … | yes a = λ where tt → refl
 … | no ¬a = λ ()
@@ -224,7 +223,7 @@ record MinimalEnumeration {ℓ} (A : Set ℓ) : Set ℓ where
   minimalNumbering : A ↔ Fin (length elements)
   minimalNumbering =
     mk↔ {to = indexOf}
-      (indexOfUnique , ≡.sym ∘ lookup-index ∘ membership)
+      ((λ where refl → indexOfUnique _) , λ where refl → ≡.sym (lookup-index (membership _)))
 
 module _ {ℓ} {A : Set ℓ} (finA : IsFinite A) where
   open IsFinite finA
@@ -244,7 +243,7 @@ via-surjection : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → IsFin
 via-surjection finB h .elements = List.map (Surjection.to h) (finB .elements)
 via-surjection finB h .membership x =
   subst (_∈ _)
-    (proj₂ (Surjection.surjective h x))
+    (proj₂ (Surjection.surjective h x) refl)
     (∈-map⁺ _ (finB .membership (Surjection.to⁻ h x)))
 
 via-left-inverse : ∀ {ℓ₁ ℓ₂} {A : Set ℓ₁} {B : Set ℓ₂} → IsFinite B → (B ↩ A) → IsFinite A
@@ -252,7 +251,7 @@ via-left-inverse finB h =
   via-surjection finB
     (mk↠
       {to = LeftInverse.to h}
-      (inverseˡ⇒surjective _≡_ _≡_ (LeftInverse.inverseˡ h)))
+      (inverseˡ⇒surjective _≡_ (LeftInverse.inverseˡ h)))
 
 via-irrelevant-dec : ∀ {ℓ} {A : Set ℓ} → Nullary.Irrelevant A → Dec A → IsFinite A
 via-irrelevant-dec p (yes a) = finite [ a ] (here ∘ flip p a)
